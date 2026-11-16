@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 8080;
 const QUESTION = process.env.POLL_QUESTION || "What should we build next?";
 const OPTIONS = (process.env.POLL_OPTIONS || "AI tools,Faster deploys,Better dashboards,More coffee")
   .split(",").map((s) => s.trim()).filter(Boolean);
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
 const CONTAINER = os.hostname();
 
 // ---------- storage ----------
@@ -106,7 +105,6 @@ app.post("/api/vote", async (req, res, next) => {
 
 app.post("/api/reset", async (req, res, next) => {
   try {
-    if (!ADMIN_TOKEN || req.headers["x-admin-token"] !== ADMIN_TOKEN) return res.status(403).json({ error: "Forbidden" });
     await resetVotes();
     res.json({ ok: true });
   } catch (e) { next(e); }
@@ -153,6 +151,9 @@ const PAGE = `<!doctype html>
   .qr{background:#fff;border-radius:16px;padding:14px}
   .qr img{width:100%;display:block}
   .side p{color:var(--muted);text-align:center;margin:12px 0 0}
+  .reset{display:block;margin:28px auto 0;background:transparent;color:var(--muted);border:1px solid #39406a;
+    border-radius:8px;padding:8px 16px;font-size:.9rem;cursor:pointer}
+  .reset:hover{color:var(--text);border-color:var(--accent)}
   .total{font-size:3rem;font-weight:700;text-align:center;margin-top:24px}
   .badge{display:inline-block;font-size:.8rem;padding:3px 10px;border-radius:999px;margin-top:28px}
   .ok{background:#16352f;color:#7ee2c5}.warn{background:#3d2a12;color:#ffc77a}
@@ -175,6 +176,7 @@ const PAGE = `<!doctype html>
     <p>Scan to vote</p>
     <div class="total" id="total">0</div>
     <p>votes</p>
+    <button class="reset" id="reset">Reset votes</button>
   </aside>
 </div>
 <script>
@@ -211,6 +213,11 @@ const PAGE = `<!doctype html>
     if (!o) return;
     const r = await fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option: o }) });
     render(await r.json());
+  });
+  document.getElementById("reset").addEventListener("click", async () => {
+    if (!confirm("Clear all votes for this question?")) return;
+    await fetch("/api/reset", { method: "POST" });
+    refresh();
   });
   refresh();
   setInterval(refresh, 1500);
